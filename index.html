@@ -5,38 +5,54 @@
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         body { text-align: center; font-family: sans-serif; padding: 20px; }
-        #reader { width: 300px; margin: auto; display: none; } /* Hidden by default */
-        .btn { padding: 15px 30px; font-size: 18px; margin: 10px; cursor: pointer; }
+        #reader { width: 100%; max-width: 500px; margin: 20px auto; display: none; }
+        
+        /* Updated Buttons */
+        .btn { 
+            padding: 25px 50px; 
+            font-size: 24px; 
+            margin: 10px; 
+            cursor: pointer; 
+            border: none; 
+            color: white; 
+            font-weight: bold;
+            border-radius: 10px;
+        }
+        .btn-in { background-color: #28a745; }  /* Green */
+        .btn-out { background-color: #dc3545; } /* Red */
     </style>
 </head>
 <body>
 
     <h1>Work Attendance</h1>
     <div id="controls">
-        <button class="btn" onclick="startScanner('TIME IN')">TIME IN</button>
-        <button class="btn" onclick="startScanner('TIME OUT')">TIME OUT</button>
+        <button class="btn btn-in" onclick="startScanner('TIME IN')">TIME IN</button>
+        <button class="btn btn-out" onclick="startScanner('TIME OUT')">TIME OUT</button>
     </div>
     
     <h2 id="status">Please select an action</h2>
     <div id="reader"></div>
 
     <script>
-        let html5QrcodeScanner;
+        let html5QrcodeScanner = null;
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyZDjUgPXuO7KvmCzyKqebcCg5wG2x30AXJ3p2SmtoL7iK8fXuj2qCDLwNxAopTchcA/exec";
 
         async function startScanner(mode) {
+            // If a scanner is already running, stop it first
+            if (html5QrcodeScanner) {
+                await html5QrcodeScanner.clear();
+            }
+
             document.getElementById('status').innerText = "Mode: " + mode + " - Scanning...";
-            document.getElementById('reader').style.display = "block"; // Show camera
+            document.getElementById('reader').style.display = "block";
 
             html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
             
             html5QrcodeScanner.render(async (decodedText) => {
-                // 1. Stop scanning immediately after success
                 await html5QrcodeScanner.clear();
                 document.getElementById('reader').style.display = "none";
                 document.getElementById('status').innerText = "Processing...";
 
-                // 2. Send to Google Sheets
                 try {
                     await fetch(SCRIPT_URL, {
                         method: "POST",
