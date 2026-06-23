@@ -8,12 +8,10 @@
         body { text-align: center; font-family: sans-serif; padding: 20px; }
         #reader { width: 100%; max-width: 500px; margin: 20px auto; display: none; }
         
-        /* Buttons */
         .btn { padding: 25px 50px; font-size: 24px; margin: 10px; cursor: pointer; border: none; color: white; font-weight: bold; border-radius: 10px; }
         .btn-in { background-color: #28a745; }
         .btn-out { background-color: #dc3545; }
 
-        /* Full Screen Overlay Message */
         #message-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(255, 255, 255, 0.95);
@@ -57,20 +55,23 @@
             html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
             
             html5QrcodeScanner.render(async (decodedText) => {
-                // --- ANTI-DOUBLE SCAN LOGIC ---
-                const lastAction = localStorage.getItem(decodedText);
-                if (lastAction === mode) {
-                    alert("ERROR: You are already logged " + mode + ". Please perform the opposite action first.");
-                    return; // Stop here if trying to do the same thing twice
+                // 1. QUERY THE SHEET FIRST (Anti-Double Scan Logic)
+                document.getElementById('status').innerText = "Checking status...";
+                const checkResponse = await fetch(SCRIPT_URL + "?name=" + encodeURIComponent(decodedText));
+                const checkData = await checkResponse.json();
+                
+                if (checkData.lastAction === mode) {
+                    alert("ERROR: You are already logged " + mode + ". You must perform the opposite action first.");
+                    await html5QrcodeScanner.clear();
+                    document.getElementById('reader').style.display = "none";
+                    document.getElementById('status').innerText = "Please select an action";
+                    return;
                 }
 
+                // 2. PROCEED IF VALID
                 await html5QrcodeScanner.clear();
                 document.getElementById('reader').style.display = "none";
                 
-                // Update local storage
-                localStorage.setItem(decodedText, mode);
-                
-                // Show overlay and play sound
                 playBeep();
                 const msgDiv = document.getElementById('message-overlay');
                 msgDiv.innerText = decodedText + "\nYOU ARE NOW " + mode;
@@ -87,7 +88,6 @@
                     console.error("Sync error");
                 }
 
-                // Reset dashboard after 3 seconds
                 setTimeout(() => {
                     msgDiv.style.display = "none";
                     document.getElementById('status').innerText = "Please select an action";
