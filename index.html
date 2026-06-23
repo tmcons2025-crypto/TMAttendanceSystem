@@ -39,7 +39,6 @@
         let html5QrcodeScanner = null;
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyZDjUgPXuO7KvmCzyKqebcCg5wG2x30AXJ3p2SmtoL7iK8fXuj2qCDLwNxAopTchcA/exec";
 
-        // Generate a beep sound
         function playBeep() {
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const osc = audioCtx.createOscillator();
@@ -58,8 +57,18 @@
             html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
             
             html5QrcodeScanner.render(async (decodedText) => {
+                // --- ANTI-DOUBLE SCAN LOGIC ---
+                const lastAction = localStorage.getItem(decodedText);
+                if (lastAction === mode) {
+                    alert("ERROR: You are already logged " + mode + ". Please perform the opposite action first.");
+                    return; // Stop here if trying to do the same thing twice
+                }
+
                 await html5QrcodeScanner.clear();
                 document.getElementById('reader').style.display = "none";
+                
+                // Update local storage
+                localStorage.setItem(decodedText, mode);
                 
                 // Show overlay and play sound
                 playBeep();
