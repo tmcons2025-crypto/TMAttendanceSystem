@@ -36,10 +36,9 @@
     <div id="reader"></div>
 
     <script>
-        let html5QrcodeScanner = null;
+        let html5Qrcode = null;
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyZDjUgPXuO7KvmCzyKqebcCg5wG2x30AXJ3p2SmtoL7iK8fXuj2qCDLwNxAopTchcA/exec";
 
-        // Generate a beep sound
         function playBeep() {
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const osc = audioCtx.createOscillator();
@@ -50,39 +49,56 @@
         }
 
         async function startScanner(mode) {
-            if (html5QrcodeScanner) await html5QrcodeScanner.clear();
+            // 1. Clean up existing instance if it exists
+            if (html5Qrcode) {
+                try { await html5Qrcode.stop(); } catch (e) { console.error(e); }
+            }
 
             document.getElementById('status').innerText = "Mode: " + mode + " - Scanning...";
             document.getElementById('reader').style.display = "block";
 
-            html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+            // 2. Initialize the Html5Qrcode instance
+            html5Qrcode = new Html5Qrcode("reader");
+
+            // 3. Start scanning
+            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
             
-            html5QrcodeScanner.render(async (decodedText) => {
-                await html5QrcodeScanner.clear();
-                document.getElementById('reader').style.display = "none";
-                
-                // Show overlay and play sound
-                playBeep();
-                const msgDiv = document.getElementById('message-overlay');
-                msgDiv.innerText = decodedText + "\nYOU ARE NOW " + mode;
-                msgDiv.style.display = "flex";
+            html5Qrcode.start(
+                { facingMode: "environment" }, // Forces back camera on mobile
+                config,
+                async (decodedText) => {
+                    // Success callback
+                    await html5Qrcode.stop();
+                    document.getElementById('reader').style.display = "none";
+                    
+                    playBeep();
+                    const msgDiv = document.getElementById('message-overlay');
+                    msgDiv.innerText = decodedText + "\nYOU ARE NOW " + mode;
+                    msgDiv.style.display = "flex";
 
-                // Send to Google Sheets
-                try {
-                    await fetch(SCRIPT_URL, {
-                        method: "POST", mode: "no-cors",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ name: decodedText, action: mode })
-                    });
-                } catch (err) {
-                    console.error("Sync error");
+                    // Send to Google Sheets
+                    try {
+                        await fetch(SCRIPT_URL, {
+                            method: "POST", 
+                            mode: "no-cors",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ name: decodedText, action: mode })
+                        });
+                    } catch (err) {
+                        console.error("Sync error:", err);
+                    }
+
+                    // Reset dashboard after 3 seconds
+                    setTimeout(() => {
+                        msgDiv.style.display = "none";
+                        document.getElementById('status').innerText = "Please select an action";
+                    }, 3000);
+                },
+                (errorMessage) => {
+                    // We ignore scanning errors as they happen constantly during the stream
                 }
-
-                // Reset dashboard after 3 seconds
-                setTimeout(() => {
-                    msgDiv.style.display = "none";
-                    document.getElementById('status').innerText = "Please select an action";
-                }, 3000);
+            ).catch(err => {
+                alert("Camera Error: " + err);
             });
         }
     </script>
