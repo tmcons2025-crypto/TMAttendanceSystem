@@ -34,7 +34,7 @@
     <div id="reader"></div>
 
     <script>
-        let html5QrcodeScanner = null;
+        let html5QrCode = null;
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyZDjUgPXuO7KvmCzyKqebcCg5wG2x30AXJ3p2SmtoL7iK8fXuj2qCDLwNxAopTchcA/exec";
 
         function playBeep() {
@@ -47,57 +47,63 @@
         }
 
         async function startScanner(mode) {
-            if (html5QrcodeScanner) await html5QrcodeScanner.clear();
-
             document.getElementById('status').innerText = `Mode: ${mode} - Scanning...`;
             document.getElementById('reader').style.display = "block";
 
-            // FIX: Changed 'exact' to 'ideal' to prevent OverconstrainedError
-            html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
-                fps: 10, 
-                qrbox: 250,
-                videoConstraints: { facingMode: { ideal: "environment" } } 
-            });
-            
-            html5QrcodeScanner.render(async (decodedText) => {
-                document.getElementById('status').innerText = "Checking status...";
-                
-                try {
-                    const response = await fetch(`${SCRIPT_URL}?name=${encodeURIComponent(decodedText)}`);
-                    const data = await response.json();
-                    
-                    if (data.lastAction === mode) {
-                        alert(`ERROR: You are already logged ${mode}.`);
-                        resetUI();
-                        return;
-                    }
+            html5QrCode = new Html5Qrcode("reader");
 
-                    await html5QrcodeScanner.clear();
-                    playBeep();
-                    
-                    const msgDiv = document.getElementById('message-overlay');
-                    msgDiv.innerText = `${decodedText}\nYOU ARE NOW ${mode}`;
-                    msgDiv.style.display = "flex";
+            try {
+                // 'ideal' environment ensures rear camera on mobile, falls back to front/webcam on desktop
+                await html5QrCode.start(
+                    { facingMode: { ideal: "environment" } },
+                    { fps: 10, qrbox: 250 },
+                    async (decodedText) => {
+                        await html5QrCode.stop();
+                        document.getElementById('status').innerText = "Checking status...";
+                        
+                        try {
+                            const response = await fetch(`${SCRIPT_URL}?name=${encodeURIComponent(decodedText)}`);
+                            const data = await response.json();
+                            
+                            if (data.lastAction === mode) {
+                                alert(`ERROR: You are already logged ${mode}.`);
+                                resetUI();
+                                return;
+                            }
 
-                    await fetch(SCRIPT_URL, {
-                        method: "POST", mode: "no-cors",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ name: decodedText, action: mode })
-                    });
+                            playBeep();
+                            const msgDiv = document.getElementById('message-overlay');
+                            msgDiv.innerText = `${decodedText}\nYOU ARE NOW ${mode}`;
+                            msgDiv.style.display = "flex";
 
-                    setTimeout(() => {
-                        msgDiv.style.display = "none";
-                        resetUI();
-                    }, 3000);
+                            await fetch(SCRIPT_URL, {
+                                method: "POST", mode: "no-cors",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ name: decodedText, action: mode })
+                            });
 
-                } catch (err) {
-                    alert("System Error: Could not connect to server.");
-                    resetUI();
-                }
-            });
+                            setTimeout(() => {
+                                msgDiv.style.display = "none";
+                                resetUI();
+                            }, 3000);
+                        } catch (err) {
+                            alert("System Error: Could not connect to server.");
+                            resetUI();
+                        }
+                    },
+                    (err) => { /* Ignore frequent scanning errors */ }
+                );
+            } catch (err) {
+                console.error(err);
+                alert("Camera Error: Please grant camera access.");
+                resetUI();
+            }
         }
 
-        function resetUI() {
+        async function resetUI() {
+            if (html5QrCode && html5QrCode.isScanning) {
+                await html5QrCode.stop();
+            }
             document.getElementById('reader').style.display = "none";
             document.getElementById('status').innerText = "Please select an action";
         }
