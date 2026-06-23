@@ -1,28 +1,30 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TM Construction Corporation Attendance System</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         body { text-align: center; font-family: sans-serif; padding: 20px; }
         #reader { width: 100%; max-width: 500px; margin: 20px auto; display: none; }
         
-        /* Updated Buttons */
-        .btn { 
-            padding: 25px 50px; 
-            font-size: 24px; 
-            margin: 10px; 
-            cursor: pointer; 
-            border: none; 
-            color: white; 
-            font-weight: bold;
-            border-radius: 10px;
+        /* Buttons */
+        .btn { padding: 25px 50px; font-size: 24px; margin: 10px; cursor: pointer; border: none; color: white; font-weight: bold; border-radius: 10px; }
+        .btn-in { background-color: #28a745; }
+        .btn-out { background-color: #dc3545; }
+
+        /* Full Screen Overlay Message */
+        #message-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            display: none; justify-content: center; align-items: center;
+            font-size: 32px; font-weight: bold; z-index: 100;
         }
-        .btn-in { background-color: #28a745; }  /* Green */
-        .btn-out { background-color: #dc3545; } /* Red */
     </style>
 </head>
 <body>
+
+    <div id="message-overlay"></div>
 
     <h1>Work Attendance</h1>
     <div id="controls">
@@ -37,11 +39,18 @@
         let html5QrcodeScanner = null;
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyZDjUgPXuO7KvmCzyKqebcCg5wG2x30AXJ3p2SmtoL7iK8fXuj2qCDLwNxAopTchcA/exec";
 
+        // Generate a beep sound
+        function playBeep() {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.frequency.value = 880; gain.gain.value = 0.1;
+            osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+        }
+
         async function startScanner(mode) {
-            // If a scanner is already running, stop it first
-            if (html5QrcodeScanner) {
-                await html5QrcodeScanner.clear();
-            }
+            if (html5QrcodeScanner) await html5QrcodeScanner.clear();
 
             document.getElementById('status').innerText = "Mode: " + mode + " - Scanning...";
             document.getElementById('reader').style.display = "block";
@@ -51,21 +60,29 @@
             html5QrcodeScanner.render(async (decodedText) => {
                 await html5QrcodeScanner.clear();
                 document.getElementById('reader').style.display = "none";
-                document.getElementById('status').innerText = "Processing...";
+                
+                // Show overlay and play sound
+                playBeep();
+                const msgDiv = document.getElementById('message-overlay');
+                msgDiv.innerText = decodedText + "\nYOU ARE NOW " + mode;
+                msgDiv.style.display = "flex";
 
+                // Send to Google Sheets
                 try {
                     await fetch(SCRIPT_URL, {
-                        method: "POST",
-                        mode: "no-cors",
+                        method: "POST", mode: "no-cors",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ name: decodedText, action: mode })
                     });
-                    alert("Success: " + decodedText + " recorded for " + mode);
                 } catch (err) {
-                    alert("Error: Could not connect to server.");
+                    console.error("Sync error");
                 }
 
-                document.getElementById('status').innerText = "Please select an action";
+                // Reset dashboard after 3 seconds
+                setTimeout(() => {
+                    msgDiv.style.display = "none";
+                    document.getElementById('status').innerText = "Please select an action";
+                }, 3000);
             });
         }
     </script>
