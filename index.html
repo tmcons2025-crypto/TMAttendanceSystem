@@ -1,106 +1,51 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TM Construction Corporation Attendance System</title>
+    <title>Attendance System</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
-        body { text-align: center; font-family: sans-serif; padding: 20px; }
-        #reader { width: 100%; max-width: 500px; margin: 20px auto; display: none; }
-        
-        /* Buttons */
-        .btn { padding: 25px 50px; font-size: 24px; margin: 10px; cursor: pointer; border: none; color: white; font-weight: bold; border-radius: 10px; }
-        .btn-in { background-color: #28a745; }
-        .btn-out { background-color: #dc3545; }
-
-        /* Full Screen Overlay Message */
-        #message-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(255, 255, 255, 0.95);
-            display: none; justify-content: center; align-items: center;
-            font-size: 32px; font-weight: bold; z-index: 100;
-        }
+        body { text-align: center; font-family: sans-serif; }
+        #reader { width: 500px; margin: auto; }
+        .btn { padding: 20px; font-size: 20px; margin: 10px; cursor: pointer; }
     </style>
 </head>
 <body>
 
-    <div id="message-overlay"></div>
-
     <h1>Work Attendance</h1>
     <div id="controls">
-        <button class="btn btn-in" onclick="startScanner('TIME IN')">TIME IN</button>
-        <button class="btn btn-out" onclick="startScanner('TIME OUT')">TIME OUT</button>
+        <button class="btn" onclick="setMode('TIME IN')">TIME IN</button>
+        <button class="btn" onclick="setMode('TIME OUT')">TIME OUT</button>
     </div>
     
     <h2 id="status">Please select an action</h2>
     <div id="reader"></div>
 
     <script>
-        let html5Qrcode = null;
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyZDjUgPXuO7KvmCzyKqebcCg5wG2x30AXJ3p2SmtoL7iK8fXuj2qCDLwNxAopTchcA/exec";
+        let currentMode = "";
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyZDjUgPXuO7KvmCzyKqebcCg5wG2x30AXJ3p2SmtoL7iK8fXuj2qCDLwNxAopTchcA/exec"; // PASTE YOUR URL HERE
 
-        function playBeep() {
-            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.connect(gain); gain.connect(audioCtx.destination);
-            osc.frequency.value = 880; gain.gain.value = 0.1;
-            osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+        function setMode(mode) {
+            currentMode = mode;
+            document.getElementById('status').innerText = "Mode: " + mode + " - Please scan ID";
         }
 
-        async function startScanner(mode) {
-            // 1. Clean up existing instance if it exists
-            if (html5Qrcode) {
-                try { await html5Qrcode.stop(); } catch (e) { console.error(e); }
-            }
-
-            document.getElementById('status').innerText = "Mode: " + mode + " - Scanning...";
-            document.getElementById('reader').style.display = "block";
-
-            // 2. Initialize the Html5Qrcode instance
-            html5Qrcode = new Html5Qrcode("reader");
-
-            // 3. Start scanning
-            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+        function onScanSuccess(decodedText, decodedResult) {
+            if (!currentMode) { alert("Please select Time In or Time Out first!"); return; }
             
-            html5Qrcode.start(
-                { facingMode: "environment" }, // Forces back camera on mobile
-                config,
-                async (decodedText) => {
-                    // Success callback
-                    await html5Qrcode.stop();
-                    document.getElementById('reader').style.display = "none";
-                    
-                    playBeep();
-                    const msgDiv = document.getElementById('message-overlay');
-                    msgDiv.innerText = decodedText + "\nYOU ARE NOW " + mode;
-                    msgDiv.style.display = "flex";
-
-                    // Send to Google Sheets
-                    try {
-                        await fetch(SCRIPT_URL, {
-                            method: "POST", 
-                            mode: "no-cors",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ name: decodedText, action: mode })
-                        });
-                    } catch (err) {
-                        console.error("Sync error:", err);
-                    }
-
-                    // Reset dashboard after 3 seconds
-                    setTimeout(() => {
-                        msgDiv.style.display = "none";
-                        document.getElementById('status').innerText = "Please select an action";
-                    }, 3000);
-                },
-                (errorMessage) => {
-                    // We ignore scanning errors as they happen constantly during the stream
-                }
-            ).catch(err => {
-                alert("Camera Error: " + err);
+            // Send to Google Sheets
+            fetch(SCRIPT_URL, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: decodedText, action: currentMode })
+            }).then(() => {
+                alert("Success: " + decodedText + " recorded for " + currentMode);
+                currentMode = ""; // Reset
             });
         }
+
+        let html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+        html5QrcodeScanner.render(onScanSuccess);
     </script>
 </body>
 </html>
