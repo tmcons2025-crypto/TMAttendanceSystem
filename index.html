@@ -52,10 +52,11 @@
             document.getElementById('status').innerText = `Mode: ${mode} - Scanning...`;
             document.getElementById('reader').style.display = "block";
 
+            // FIX: Changed 'exact' to 'ideal' to prevent OverconstrainedError
             html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
                 fps: 10, 
                 qrbox: 250,
-                videoConstraints: { facingMode: { exact: "environment" } } // Forces back camera
+                videoConstraints: { facingMode: { ideal: "environment" } } 
             });
             
             html5QrcodeScanner.render(async (decodedText) => {
