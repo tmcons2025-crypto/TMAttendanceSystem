@@ -4,48 +4,54 @@
     <title>Attendance System</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
-        body { text-align: center; font-family: sans-serif; }
-        #reader { width: 500px; margin: auto; }
-        .btn { padding: 20px; font-size: 20px; margin: 10px; cursor: pointer; }
+        body { text-align: center; font-family: sans-serif; padding: 20px; }
+        #reader { width: 300px; margin: auto; display: none; } /* Hidden by default */
+        .btn { padding: 15px 30px; font-size: 18px; margin: 10px; cursor: pointer; }
     </style>
 </head>
 <body>
 
     <h1>Work Attendance</h1>
     <div id="controls">
-        <button class="btn" onclick="setMode('TIME IN')">TIME IN</button>
-        <button class="btn" onclick="setMode('TIME OUT')">TIME OUT</button>
+        <button class="btn" onclick="startScanner('TIME IN')">TIME IN</button>
+        <button class="btn" onclick="startScanner('TIME OUT')">TIME OUT</button>
     </div>
     
     <h2 id="status">Please select an action</h2>
     <div id="reader"></div>
 
     <script>
-        let currentMode = "";
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyZDjUgPXuO7KvmCzyKqebcCg5wG2x30AXJ3p2SmtoL7iK8fXuj2qCDLwNxAopTchcA/exec"; // PASTE YOUR URL HERE
+        let html5QrcodeScanner;
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyZDjUgPXuO7KvmCzyKqebcCg5wG2x30AXJ3p2SmtoL7iK8fXuj2qCDLwNxAopTchcA/exec";
 
-        function setMode(mode) {
-            currentMode = mode;
-            document.getElementById('status').innerText = "Mode: " + mode + " - Please scan ID";
-        }
+        async function startScanner(mode) {
+            document.getElementById('status').innerText = "Mode: " + mode + " - Scanning...";
+            document.getElementById('reader').style.display = "block"; // Show camera
 
-        function onScanSuccess(decodedText, decodedResult) {
-            if (!currentMode) { alert("Please select Time In or Time Out first!"); return; }
+            html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
             
-            // Send to Google Sheets
-            fetch(SCRIPT_URL, {
-                method: "POST",
-                mode: "no-cors",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name: decodedText, action: currentMode })
-            }).then(() => {
-                alert("Success: " + decodedText + " recorded for " + currentMode);
-                currentMode = ""; // Reset
+            html5QrcodeScanner.render(async (decodedText) => {
+                // 1. Stop scanning immediately after success
+                await html5QrcodeScanner.clear();
+                document.getElementById('reader').style.display = "none";
+                document.getElementById('status').innerText = "Processing...";
+
+                // 2. Send to Google Sheets
+                try {
+                    await fetch(SCRIPT_URL, {
+                        method: "POST",
+                        mode: "no-cors",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ name: decodedText, action: mode })
+                    });
+                    alert("Success: " + decodedText + " recorded for " + mode);
+                } catch (err) {
+                    alert("Error: Could not connect to server.");
+                }
+
+                document.getElementById('status').innerText = "Please select an action";
             });
         }
-
-        let html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
-        html5QrcodeScanner.render(onScanSuccess);
     </script>
 </body>
 </html>
