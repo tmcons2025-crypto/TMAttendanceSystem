@@ -1,20 +1,22 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TM Construction Corporation Attendance System</title>
+    <title>TM Construction Attendance System</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
-        body { text-align: center; font-family: sans-serif; padding: 20px; }
-        #reader { width: 100%; max-width: 500px; margin: 20px auto; display: none; }
-        .btn { padding: 25px 50px; font-size: 24px; margin: 10px; cursor: pointer; border: none; color: white; font-weight: bold; border-radius: 10px; }
+        body { text-align: center; font-family: sans-serif; padding: 20px; background-color: #f4f7f6; }
+        #reader { width: 100%; max-width: 500px; margin: 20px auto; display: none; border: 2px solid #333; }
+        .btn { padding: 20px 40px; font-size: 20px; margin: 10px; cursor: pointer; border: none; color: white; font-weight: bold; border-radius: 8px; transition: opacity 0.3s; }
+        .btn:active { opacity: 0.7; }
         .btn-in { background-color: #28a745; }
         .btn-out { background-color: #dc3545; }
         #message-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(255, 255, 255, 0.95);
-            display: none; justify-content: center; align-items: center;
-            font-size: 32px; font-weight: bold; z-index: 100;
+            background: rgba(255, 255, 255, 0.95); display: none; 
+            justify-content: center; align-items: center;
+            font-size: 24px; font-weight: bold; z-index: 100; padding: 20px; text-align: center;
         }
     </style>
 </head>
@@ -22,7 +24,7 @@
 
     <div id="message-overlay"></div>
 
-    <h1>Work Attendance</h1>
+    <h1>TM Construction</h1>
     <div id="controls">
         <button class="btn btn-in" onclick="startScanner('TIME IN')">TIME IN</button>
         <button class="btn btn-out" onclick="startScanner('TIME OUT')">TIME OUT</button>
@@ -36,48 +38,46 @@
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyZDjUgPXuO7KvmCzyKqebcCg5wG2x30AXJ3p2SmtoL7iK8fXuj2qCDLwNxAopTchcA/exec";
 
         function playBeep() {
-            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.connect(gain); gain.connect(audioCtx.destination);
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain); gain.connect(ctx.destination);
             osc.frequency.value = 880; gain.gain.value = 0.1;
-            osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+            osc.start(); osc.stop(ctx.currentTime + 0.2);
         }
 
         async function startScanner(mode) {
             if (html5QrcodeScanner) await html5QrcodeScanner.clear();
 
-            document.getElementById('status').innerText = "Mode: " + mode + " - Scanning...";
+            document.getElementById('status').innerText = `Mode: ${mode} - Scanning...`;
             document.getElementById('reader').style.display = "block";
 
-            html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+            html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
+                fps: 10, 
+                qrbox: 250,
+                videoConstraints: { facingMode: { exact: "environment" } } // Forces back camera
+            });
             
             html5QrcodeScanner.render(async (decodedText) => {
-                // 1. QUERY THE SHEET FIRST (Anti-Double Scan Logic)
                 document.getElementById('status').innerText = "Checking status...";
                 
                 try {
-                    const checkResponse = await fetch(SCRIPT_URL + "?name=" + encodeURIComponent(decodedText));
-                    const checkData = await checkResponse.json();
+                    const response = await fetch(`${SCRIPT_URL}?name=${encodeURIComponent(decodedText)}`);
+                    const data = await response.json();
                     
-                    if (checkData.lastAction === mode) {
-                        alert("ERROR: You are already logged " + mode + ". You must perform the opposite action first.");
-                        await html5QrcodeScanner.clear();
-                        document.getElementById('reader').style.display = "none";
-                        document.getElementById('status').innerText = "Please select an action";
+                    if (data.lastAction === mode) {
+                        alert(`ERROR: You are already logged ${mode}.`);
+                        resetUI();
                         return;
                     }
 
-                    // 2. PROCEED IF VALID
                     await html5QrcodeScanner.clear();
-                    document.getElementById('reader').style.display = "none";
-                    
                     playBeep();
+                    
                     const msgDiv = document.getElementById('message-overlay');
-                    msgDiv.innerText = decodedText + "\nYOU ARE NOW " + mode;
+                    msgDiv.innerText = `${decodedText}\nYOU ARE NOW ${mode}`;
                     msgDiv.style.display = "flex";
 
-                    // Send to Google Sheets
                     await fetch(SCRIPT_URL, {
                         method: "POST", mode: "no-cors",
                         headers: { "Content-Type": "application/json" },
@@ -86,13 +86,19 @@
 
                     setTimeout(() => {
                         msgDiv.style.display = "none";
-                        document.getElementById('status').innerText = "Please select an action";
+                        resetUI();
                     }, 3000);
+
                 } catch (err) {
-                    alert("System Error: Could not verify status or connect to server.");
-                    document.getElementById('status').innerText = "Please select an action";
+                    alert("System Error: Could not connect to server.");
+                    resetUI();
                 }
             });
+        }
+
+        function resetUI() {
+            document.getElementById('reader').style.display = "none";
+            document.getElementById('status').innerText = "Please select an action";
         }
     </script>
 </body>
