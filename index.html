@@ -7,17 +7,21 @@
         body { text-align: center; font-family: sans-serif; padding: 20px; }
         #reader { width: 100%; max-width: 500px; margin: 20px auto; display: none; }
         
-        /* Updated Buttons */
+        /* Buttons forced to 10cm x 10cm */
         .btn { 
-            padding: 25px 50px; 
+            width: 10cm; 
+            height: 10cm; 
             font-size: 24px; 
-            margin: 10px; 
+            margin: 15px; 
             cursor: pointer; 
             border: none; 
             color: white; 
-            font-weight: bold;
-            border-radius: 10px;
+            font-weight: bold; 
+            border-radius: 20px; /* Rounded corners */
+            display: inline-block;
+            vertical-align: middle;
         }
+        
         .btn-in { background-color: #28a745; }  /* Green */
         .btn-out { background-color: #dc3545; } /* Red */
     </style>
@@ -34,14 +38,12 @@
     <div id="reader"></div>
 
     <script>
+        // Your existing script remains the same...
         let html5QrcodeScanner = null;
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyZDjUgPXuO7KvmCzyKqebcCg5wG2x30AXJ3p2SmtoL7iK8fXuj2qCDLwNxAopTchcA/exec";
 
         async function startScanner(mode) {
-            // If a scanner is already running, stop it first
-            if (html5QrcodeScanner) {
-                await html5QrcodeScanner.clear();
-            }
+            if (html5QrcodeScanner) await html5QrcodeScanner.clear();
 
             document.getElementById('status').innerText = "Mode: " + mode + " - Scanning...";
             document.getElementById('reader').style.display = "block";
@@ -55,8 +57,7 @@
 
                 try {
                     await fetch(SCRIPT_URL, {
-                        method: "POST",
-                        mode: "no-cors",
+                        method: "POST", mode: "no-cors",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ name: decodedText, action: mode })
                     });
@@ -64,7 +65,6 @@
                 } catch (err) {
                     alert("Error: Could not connect to server.");
                 }
-
                 document.getElementById('status').innerText = "Please select an action";
             });
         }
