@@ -44,23 +44,20 @@
             scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
             
             scanner.render(async (decodedText) => {
-                await scanner.clear();
-                document.getElementById('reader').style.display = "none";
-                
-                try {
-                    const url = `${SCRIPT_URL}?name=${encodeURIComponent(decodedText)}&action=${encodeURIComponent(mode)}`;
-                    const response = await fetch(url);
-                    const text = await response.text(); 
-                    console.log("Server Response:", text); // CHECK THIS IN F12 CONSOLE
-                    
-                    const result = JSON.parse(text);
-                    if(result.status === "success") {
-                        showCustomAlert("Success: " + decodedText + " logged " + mode);
-                    }
-                } catch (err) {
-                    showCustomAlert("Error: Check Console (F12)");
-                }
-            });
+    await scanner.clear();
+    document.getElementById('reader').style.display = "none";
+    
+    try {
+        const url = `${SCRIPT_URL}?name=${encodeURIComponent(decodedText)}&action=${encodeURIComponent(mode)}`;
+        const response = await fetch(url);
+        const result = await response.json();
+        
+        // Use the message sent from Code.gs
+        showCustomAlert(result.message);
+    } catch (err) {
+        showCustomAlert("Connection Error. Please try again.");
+    }
+});
         }
     </script>
 </body>
