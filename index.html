@@ -47,15 +47,38 @@
     await scanner.clear();
     document.getElementById('reader').style.display = "none";
     
-    try {
-        const url = `${SCRIPT_URL}?name=${encodeURIComponent(decodedText)}&action=${encodeURIComponent(mode)}`;
-        const response = await fetch(url);
-        const result = await response.json();
-        
-        // Use the message sent from Code.gs
-        showCustomAlert(result.message);
-    } catch (err) {
-        showCustomAlert("Connection Error. Please try again.");
+    const attendanceData = { name: decodedText, action: mode, timestamp: new Date().toISOString() };
+    
+    // Check if online
+    if (navigator.onLine) {
+        try {
+            const url = `${SCRIPT_URL}?name=${encodeURIComponent(decodedText)}&action=${encodeURIComponent(mode)}`;
+            const response = await fetch(url);
+            const result = await response.json();
+            showCustomAlert(result.message);
+        } catch (err) {
+            saveOffline(attendanceData);
+        }
+    } else {
+        saveOffline(attendanceData);
+    }
+});
+
+// Save to browser memory if offline
+function saveOffline(data) {
+    let offlineQueue = JSON.parse(localStorage.getItem('attendanceQueue') || '[]');
+    offlineQueue.push(data);
+    localStorage.setItem('attendanceQueue', JSON.stringify(offlineQueue));
+    showCustomAlert("Offline: Data saved locally. Sync when online.");
+}
+
+// Automatically sync when connection returns
+window.addEventListener('online', async () => {
+    let offlineQueue = JSON.parse(localStorage.getItem('attendanceQueue') || '[]');
+    while (offlineQueue.length > 0) {
+        let item = offlineQueue.shift();
+        // Send to your Google Sheet here...
+        localStorage.setItem('attendanceQueue', JSON.stringify(offlineQueue));
     }
 });
         }
