@@ -15,14 +15,12 @@
     </style>
 </head>
 <body>
-
     <div id="custom-modal">
         <div class="modal-content">
             <h2 id="modal-text"></h2>
             <button onclick="closeModal()" style="padding:10px 20px;">OKAY</button>
         </div>
     </div>
-
     <h1>TM Construction Attendance</h1>
     <div id="controls">
         <button class="btn btn-in" onclick="startScanner('TIME IN')">TIME IN</button>
@@ -31,7 +29,6 @@
     <div id="reader"></div>
 
     <script>
-        // REPLACE THIS URL WITH YOUR NEW DEPLOYMENT URL
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyZDjUgPXuO7KvmCzyKqebcCg5wG2x30AXJ3p2SmtoL7iK8fXuj2qCDLwNxAopTchcA/exec";
         let scanner = null;
 
@@ -50,17 +47,18 @@
                 await scanner.clear();
                 document.getElementById('reader').style.display = "none";
                 
-                // Record to Sheet via GET request
                 try {
                     const url = `${SCRIPT_URL}?name=${encodeURIComponent(decodedText)}&action=${encodeURIComponent(mode)}`;
                     const response = await fetch(url);
-                    const result = await response.json();
+                    const text = await response.text(); 
+                    console.log("Server Response:", text); // CHECK THIS IN F12 CONSOLE
                     
+                    const result = JSON.parse(text);
                     if(result.status === "success") {
-                        showCustomAlert("Success: " + decodedText + " recorded for " + mode);
+                        showCustomAlert("Success: " + decodedText + " logged " + mode);
                     }
                 } catch (err) {
-                    showCustomAlert("Connection Error. Please check your internet.");
+                    showCustomAlert("Error: Check Console (F12)");
                 }
             });
         }
