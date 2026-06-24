@@ -80,7 +80,6 @@
                 document.getElementById('status').innerText = "Checking status...";
                 
                 try {
-                    // Check status (GET request)
                     const checkResponse = await fetch(SCRIPT_URL + "?name=" + encodeURIComponent(decodedText));
                     const checkData = await checkResponse.json();
                     
@@ -96,16 +95,14 @@
                     document.getElementById('reader').style.display = "none";
                     playBeep();
 
-                    // Send data (POST request - mode: "no-cors" REMOVED)
-                    await fetch(SCRIPT_URL, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ name: decodedText, action: mode })
+                    // UPDATED: Using GET request to pass data via URL parameters
+                    await fetch(SCRIPT_URL + "?name=" + encodeURIComponent(decodedText) + "&action=" + encodeURIComponent(mode), {
+                        method: "GET"
                     });
                     
                     showCustomAlert("Success: " + decodedText + " recorded for " + mode);
                 } catch (err) {
-                    showCustomAlert("Error: Could not connect to server. Check console for details.");
+                    showCustomAlert("Error: Could not connect to server.");
                     console.error(err);
                 }
 
