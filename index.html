@@ -12,7 +12,6 @@
         .btn-in { background-color: #28a745; }
         .btn-out { background-color: #dc3545; }
 
-        /* Custom Modal Styling */
         #custom-modal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.7); z-index: 1000;
@@ -81,11 +80,12 @@
                 document.getElementById('status').innerText = "Checking status...";
                 
                 try {
+                    // Check status (GET request)
                     const checkResponse = await fetch(SCRIPT_URL + "?name=" + encodeURIComponent(decodedText));
                     const checkData = await checkResponse.json();
                     
                     if (checkData.lastAction === mode) {
-                        showCustomAlert("ERROR: You are already logged " + mode + ". Please perform the opposite action first.");
+                        showCustomAlert("ERROR: You are already logged " + mode + ".");
                         await html5QrcodeScanner.clear();
                         document.getElementById('reader').style.display = "none";
                         document.getElementById('status').innerText = "Please select an action";
@@ -94,17 +94,19 @@
 
                     await html5QrcodeScanner.clear();
                     document.getElementById('reader').style.display = "none";
-                    
                     playBeep();
+
+                    // Send data (POST request - mode: "no-cors" REMOVED)
                     await fetch(SCRIPT_URL, {
-                        method: "POST", mode: "no-cors",
+                        method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ name: decodedText, action: mode })
                     });
                     
                     showCustomAlert("Success: " + decodedText + " recorded for " + mode);
                 } catch (err) {
-                    showCustomAlert("Error: Could not connect to server.");
+                    showCustomAlert("Error: Could not connect to server. Check console for details.");
+                    console.error(err);
                 }
 
                 document.getElementById('status').innerText = "Please select an action";
